@@ -4,13 +4,14 @@ from PIL import Image
 import easyocr
 import numpy as np
 import re
+from pyzbar.pyzbar import decode
 
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
 st.set_page_config(
-    page_title="Warehouse AI Super App",
+    page_title="🔥 Warehouse AI Super App",
     page_icon="🔥",
     layout="wide"
 )
@@ -35,7 +36,8 @@ menu = st.sidebar.radio(
     "Pilih Menu",
     [
         "📦 Shipment Dashboard",
-        "🧠 AI Visual Search"
+        "🧠 AI Visual Search",
+        "📷 Barcode Scanner"
     ]
 )
 
@@ -43,14 +45,16 @@ st.sidebar.divider()
 
 st.sidebar.info("""
 Features:
-- Upload XLSX / CSV
-- Search realtime
-- Filter status
-- Filter station
-- AI OCR Detection
-- Smart Product Detection
-- Google Image Search
-- AI Summary
+✅ Upload XLSX / CSV
+✅ Search realtime
+✅ Filter status
+✅ Filter station
+✅ AI OCR Detection
+✅ Smart Product Detection
+✅ Barcode Scanner
+✅ QR Scanner
+✅ Google Image Search
+✅ AI Summary
 """)
 
 # =========================================================
@@ -133,7 +137,7 @@ if menu == "📦 Shipment Dashboard":
 
         search = st.text_input(
             "🔍 Search Semua Data",
-            placeholder="Cari SKU, Resi, SOC_Received, Mouse, HP..."
+            placeholder="Cari SKU, Resi, Status, Station..."
         )
 
         filtered_df = df.copy()
@@ -322,7 +326,7 @@ if menu == "📦 Shipment Dashboard":
 
 if menu == "🧠 AI Visual Search":
 
-    st.title("🧠 AI Visual Search V2")
+    st.title("🧠 AI Visual Search V3")
 
     st.caption(
         "Upload foto dus/barang lalu AI akan detect produk otomatis 🔥"
@@ -468,7 +472,7 @@ if menu == "🧠 AI Visual Search":
             st.divider()
 
             # =================================================
-            # AI PRODUCT ENGINE
+            # PRODUCT DETECTION
             # =================================================
 
             st.subheader("📦 AI Product Detection")
@@ -511,7 +515,7 @@ if menu == "🧠 AI Visual Search":
                 confidence_scores[
                     "Chair Furniture"
                 ] = "88%"
-                
+
                 smart_queries.append(
                     "Chair Furniture"
                 )
@@ -555,7 +559,7 @@ if menu == "🧠 AI Visual Search":
                 )
 
             # =================================================
-            # AUTO MODEL DETECTION
+            # MODEL DETECTION
             # =================================================
 
             model_codes = re.findall(
@@ -691,11 +695,99 @@ Recommended Search:
         )
 
 # =========================================================
+# BARCODE SCANNER
+# =========================================================
+
+if menu == "📷 Barcode Scanner":
+
+    st.title("📷 Barcode Scanner")
+
+    st.caption(
+        "Gunakan kamera HP untuk scan barcode / QR 🔥"
+    )
+
+    camera_image = st.camera_input(
+        "Ambil Foto Barcode"
+    )
+
+    if camera_image:
+
+        image = Image.open(camera_image)
+
+        st.image(
+            image,
+            caption="Captured Image",
+            use_container_width=True
+        )
+
+        image_np = np.array(image)
+
+        try:
+
+            barcodes = decode(image_np)
+
+            if barcodes:
+
+                st.success(
+                    f"Detected {len(barcodes)} barcode(s)"
+                )
+
+                for barcode in barcodes:
+
+                    barcode_data = barcode.data.decode(
+                        "utf-8"
+                    )
+
+                    barcode_type = barcode.type
+
+                    st.subheader("📦 Scan Result")
+
+                    st.code(barcode_data)
+
+                    st.write(
+                        f"Type: {barcode_type}"
+                    )
+
+                    st.divider()
+
+                    # =====================================
+                    # SEARCH LINK
+                    # =====================================
+
+                    google_search = (
+                        f"https://www.google.com/search?q={barcode_data}"
+                    )
+
+                    google_images = (
+                        f"https://www.google.com/search?tbm=isch&q={barcode_data}"
+                    )
+
+                    st.markdown(
+                        f"[🔎 Google Search]({google_search})"
+                    )
+
+                    st.markdown(
+                        f"[🖼 Google Images]({google_images})"
+                    )
+
+            else:
+
+                st.warning(
+                    "Barcode tidak ditemukan"
+                )
+
+        except Exception as e:
+
+            st.error(
+                f"Scanner Error: {e}"
+            )
+
+# =========================================================
 # FOOTER
 # =========================================================
 
 st.divider()
 
 st.caption(
-    "🔥 Warehouse AI Super App | Streamlit + EasyOCR"
+    "🔥 Warehouse AI Super App V3 | Streamlit + OCR + Barcode Scanner"
 )

@@ -6,3 +6,5 @@ easyocr
 numpy
 torch
 torchvision
+pyzbar
+opencv-python-headless

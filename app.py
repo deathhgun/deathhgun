@@ -5,9 +5,9 @@ import easyocr
 import numpy as np
 import re
 
-# ============================================
-# CONFIG
-# ============================================
+# ======================================================
+# PAGE CONFIG
+# ======================================================
 
 st.set_page_config(
     page_title="Warehouse Super App",
@@ -15,24 +15,24 @@ st.set_page_config(
     layout="wide"
 )
 
-# ============================================
-# CACHE OCR
-# ============================================
+# ======================================================
+# LOAD OCR
+# ======================================================
 
 @st.cache_resource
-def load_ocr():
+def load_reader():
     return easyocr.Reader(['en'])
 
-reader = load_ocr()
+reader = load_reader()
 
-# ============================================
+# ======================================================
 # SIDEBAR
-# ============================================
+# ======================================================
 
 st.sidebar.title("📦 Warehouse Super App")
 
 menu = st.sidebar.radio(
-    "Pilih Menu",
+    "Menu",
     [
         "📦 Shipment Dashboard",
         "🧠 AI Visual Search"
@@ -41,62 +41,62 @@ menu = st.sidebar.radio(
 
 st.sidebar.divider()
 
-st.sidebar.info(
+st.sidebar.caption(
     """
     Features:
     - Upload XLSX / CSV
     - Search realtime
+    - Filter status
     - Filter station
     - Sort data
     - AI OCR Detection
-    - AI Keyword Generator
     """
 )
 
-# ============================================
+# ======================================================
 # SHIPMENT DASHBOARD
-# ============================================
+# ======================================================
 
 if menu == "📦 Shipment Dashboard":
 
     st.title("📦 Shipment Dashboard")
 
     uploaded_file = st.file_uploader(
-        "Upload File XLSX / CSV",
+        "Upload XLSX / CSV",
         type=["xlsx", "csv"]
     )
 
     if uploaded_file:
 
-        # ====================================
+        # ==================================================
         # READ FILE
-        # ====================================
+        # ==================================================
 
         try:
 
             if uploaded_file.name.endswith(".csv"):
                 df = pd.read_csv(uploaded_file)
+
             else:
                 df = pd.read_excel(uploaded_file)
 
         except Exception as e:
-            st.error(f"Gagal membaca file: {e}")
+
+            st.error(f"Error membaca file: {e}")
             st.stop()
 
-        # ====================================
+        # ==================================================
         # CLEAN COLUMN
-        # ====================================
+        # ==================================================
 
         df.columns = [
             str(col).strip()
             for col in df.columns
         ]
 
-        st.success("File berhasil diupload!")
-
-        # ====================================
+        # ==================================================
         # METRICS
-        # ====================================
+        # ==================================================
 
         col1, col2, col3 = st.columns(3)
 
@@ -116,6 +116,7 @@ if menu == "📦 Shipment Dashboard":
 
             try:
                 unique_shipment = df.iloc[:, 0].nunique()
+
             except:
                 unique_shipment = 0
 
@@ -126,13 +127,13 @@ if menu == "📦 Shipment Dashboard":
 
         st.divider()
 
-        # ====================================
+        # ==================================================
         # SEARCH
-        # ====================================
+        # ==================================================
 
         search = st.text_input(
             "🔍 Search Semua Data",
-            placeholder="Cari SKU, Resi, Mouse, HP, Station..."
+            placeholder="Cari SKU, Resi, Mouse, HP, SOC_Received..."
         )
 
         filtered_df = df.copy()
@@ -150,9 +151,53 @@ if menu == "📦 Shipment Dashboard":
 
             filtered_df = filtered_df[mask]
 
-        # ====================================
+        # ==================================================
+        # FILTER STATUS
+        # ==================================================
+
+        status_columns = [
+            col for col in filtered_df.columns
+            if (
+                "status" in col.lower()
+                or "desc" in col.lower()
+            )
+        ]
+
+        if status_columns:
+
+            st.subheader("📦 Filter Status")
+
+            selected_status_col = st.selectbox(
+                "Pilih Kolom Status",
+                status_columns
+            )
+
+            status_options = sorted(
+                filtered_df[selected_status_col]
+                .astype(str)
+                .dropna()
+                .unique()
+                .tolist()
+            )
+
+            selected_status = st.multiselect(
+                "Pilih Status",
+                status_options
+            )
+
+            if selected_status:
+
+                filtered_df = filtered_df[
+                    filtered_df[selected_status_col]
+                    .astype(str)
+                    .isin(selected_status)
+                ]
+
+        st.divider()
+
+        # ==================================================
         # FILTER STATION
-        # ====================================
+        # ==================================================
 
         station_columns = [
             col for col in filtered_df.columns
@@ -168,7 +213,7 @@ if menu == "📦 Shipment Dashboard":
             st.subheader("📍 Filter Station")
 
             selected_station_col = st.selectbox(
-                "Pilih Kolom",
+                "Pilih Kolom Station",
                 station_columns
             )
 
@@ -195,9 +240,11 @@ if menu == "📦 Shipment Dashboard":
 
         st.divider()
 
-        # ====================================
+        # ==================================================
         # SORT
-        # ====================================
+        # ==================================================
+
+        st.subheader("↕ Sort Data")
 
         col_sort1, col_sort2 = st.columns(2)
 
@@ -230,9 +277,11 @@ if menu == "📦 Shipment Dashboard":
         except:
             pass
 
-        # ====================================
-        # RESULT
-        # ====================================
+        st.divider()
+
+        # ==================================================
+        # RESULT TABLE
+        # ==================================================
 
         st.subheader("📋 Result")
 
@@ -243,19 +292,19 @@ if menu == "📦 Shipment Dashboard":
         st.dataframe(
             filtered_df,
             use_container_width=True,
-            height=600
+            height=650
         )
 
-        # ====================================
-        # DOWNLOAD
-        # ====================================
+        # ==================================================
+        # DOWNLOAD CSV
+        # ==================================================
 
         csv = filtered_df.to_csv(
             index=False
         ).encode("utf-8")
 
         st.download_button(
-            label="⬇ Download Result CSV",
+            label="⬇ Download CSV",
             data=csv,
             file_name="filtered_result.csv",
             mime="text/csv"
@@ -267,9 +316,9 @@ if menu == "📦 Shipment Dashboard":
             "Upload file XLSX / CSV untuk memulai."
         )
 
-# ============================================
+# ======================================================
 # AI VISUAL SEARCH
-# ============================================
+# ======================================================
 
 elif menu == "🧠 AI Visual Search":
 
@@ -284,11 +333,11 @@ elif menu == "🧠 AI Visual Search":
 
         image = Image.open(uploaded_image)
 
-        col1, col2 = st.columns([1, 1])
+        col1, col2 = st.columns(2)
 
-        # ====================================
-        # IMAGE
-        # ====================================
+        # ==================================================
+        # SHOW IMAGE
+        # ==================================================
 
         with col1:
 
@@ -299,9 +348,9 @@ elif menu == "🧠 AI Visual Search":
                 use_container_width=True
             )
 
-        # ====================================
-        # OCR
-        # ====================================
+        # ==================================================
+        # OCR DETECTION
+        # ==================================================
 
         with col2:
 
@@ -326,7 +375,10 @@ elif menu == "🧠 AI Visual Search":
                         text = result[1]
 
                         if text.strip():
-                            detected_texts.append(text)
+
+                            detected_texts.append(
+                                text
+                            )
 
                     final_text = " ".join(
                         detected_texts
@@ -344,9 +396,9 @@ elif menu == "🧠 AI Visual Search":
 
                     st.stop()
 
-            # ====================================
+            # ==================================================
             # DETECTED TEXT
-            # ====================================
+            # ==================================================
 
             st.subheader("📝 Detected Text")
 
@@ -363,9 +415,9 @@ elif menu == "🧠 AI Visual Search":
 
             st.divider()
 
-            # ====================================
-            # KEYWORDS
-            # ====================================
+            # ==================================================
+            # AI KEYWORDS
+            # ==================================================
 
             st.subheader("🔍 AI Keywords")
 
@@ -378,14 +430,15 @@ elif menu == "🧠 AI Visual Search":
 
             for keyword in keywords:
 
+                keyword = keyword.lower()
+
                 if (
                     len(keyword) > 2
-                    and keyword.lower()
-                    not in unique_keywords
+                    and keyword not in unique_keywords
                 ):
 
                     unique_keywords.append(
-                        keyword.lower()
+                        keyword
                     )
 
             if unique_keywords:
@@ -401,9 +454,9 @@ elif menu == "🧠 AI Visual Search":
 
             st.divider()
 
-            # ====================================
-            # PRODUCT DETECTION
-            # ====================================
+            # ==================================================
+            # POSSIBLE PRODUCT
+            # ==================================================
 
             st.subheader("📦 Possible Product")
 
@@ -447,9 +500,9 @@ elif menu == "🧠 AI Visual Search":
 
             st.divider()
 
-            # ====================================
-            # SEARCH LINK
-            # ====================================
+            # ==================================================
+            # GOOGLE SEARCH
+            # ==================================================
 
             st.subheader("🌐 Suggested Search")
 
@@ -477,12 +530,12 @@ elif menu == "🧠 AI Visual Search":
             "Upload gambar untuk memulai AI detection."
         )
 
-# ============================================
+# ======================================================
 # FOOTER
-# ============================================
+# ======================================================
 
 st.divider()
 
 st.caption(
-    "🚀 Warehouse Super App | Streamlit + OCR"
+    "🚀 Warehouse Super App | Streamlit + EasyOCR"
 )

@@ -12,7 +12,7 @@ from rapidfuzz import fuzz
 # =========================================================
 
 st.set_page_config(
-    page_title="🔥 Warehouse AI Super App V5",
+    page_title="🔥 Warehouse AI Super App V6",
     page_icon="🔥",
     layout="wide"
 )
@@ -31,7 +31,7 @@ reader = load_reader()
 # SIDEBAR
 # =========================================================
 
-st.sidebar.title("🔥 Warehouse AI Super App V5")
+st.sidebar.title("🔥 Warehouse AI Super App V6")
 
 menu = st.sidebar.radio(
     "Pilih Menu",
@@ -63,10 +63,18 @@ if uploaded_file:
     try:
 
         if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_csv(
+                uploaded_file
+            )
 
         else:
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_excel(
+                uploaded_file
+            )
+
+        # =============================================
+        # CLEAN COLUMN
+        # =============================================
 
         df.columns = [
             str(col).strip()
@@ -75,18 +83,24 @@ if uploaded_file:
 
     except Exception as e:
 
-        st.error(f"Error membaca file: {e}")
+        st.error(
+            f"Error membaca file: {e}"
+        )
 
 # =========================================================
-# SMART SEARCH FUNCTION
+# SMART SEARCH ENGINE
 # =========================================================
 
-def smart_search_dataframe(dataframe, search):
+def smart_search_dataframe(
+    dataframe,
+    search
+):
 
     if not search:
         return dataframe
 
     shortcuts = {
+
         "cd": "celana dalam",
         "hp": "handphone",
         "rak": "rack",
@@ -94,9 +108,14 @@ def smart_search_dataframe(dataframe, search):
         "kursi": "chair",
         "lemari": "cabinet",
         "tv": "television"
+
     }
 
     search_text = search.lower()
+
+    # =============================================
+    # SHORTCUT REPLACEMENT
+    # =============================================
 
     for short, full in shortcuts.items():
 
@@ -107,22 +126,26 @@ def smart_search_dataframe(dataframe, search):
                 full
             )
 
+    # =============================================
+    # SMART SEARCH
+    # =============================================
+
     def smart_search(row):
 
         row_text = " ".join(
             row.astype(str)
         ).lower()
 
-        # =====================================
+        # =========================================
         # EXACT SEARCH
-        # =====================================
+        # =========================================
 
         if search_text in row_text:
             return True
 
-        # =====================================
+        # =========================================
         # FUZZY SEARCH
-        # =====================================
+        # =========================================
 
         similarity = fuzz.partial_ratio(
             search_text,
@@ -144,28 +167,168 @@ def smart_search_dataframe(dataframe, search):
     return filtered
 
 # =========================================================
+# AI CATEGORY DETECTOR
+# =========================================================
+
+def detect_category(text):
+
+    text = str(text).lower()
+
+    categories = {
+
+        "👕 Fashion": [
+
+            "celana",
+            "baju",
+            "kaos",
+            "jaket",
+            "hoodie",
+            "shaka",
+            "sepatu",
+            "sendal",
+            "tas",
+            "topi",
+            "fashion",
+            "kemeja",
+            "rok"
+
+        ],
+
+        "🍳 Rumah Tangga": [
+
+            "piring",
+            "gelas",
+            "sendok",
+            "garpu",
+            "rice cooker",
+            "miyako",
+            "kompor",
+            "blender",
+            "dispenser",
+            "dapur",
+            "galon",
+            "ember"
+
+        ],
+
+        "📱 Elektronik": [
+
+            "laptop",
+            "mouse",
+            "keyboard",
+            "monitor",
+            "hp",
+            "handphone",
+            "samsung",
+            "iphone",
+            "xiaomi",
+            "charger",
+            "kabel",
+            "tv",
+            "elektronik"
+
+        ],
+
+        "🪑 Furniture": [
+
+            "rack",
+            "rak",
+            "lemari",
+            "kursi",
+            "meja",
+            "cabinet",
+            "sofa",
+            "shelf",
+            "furniture"
+
+        ],
+
+        "🧸 Mainan": [
+
+            "toy",
+            "lego",
+            "boneka",
+            "mainan",
+            "rc",
+            "hot wheels"
+
+        ],
+
+        "💄 Beauty": [
+
+            "skincare",
+            "serum",
+            "makeup",
+            "lipstick",
+            "parfum",
+            "beauty",
+            "kosmetik"
+
+        ]
+    }
+
+    scores = {}
+
+    for category, keywords in categories.items():
+
+        score = 0
+
+        for keyword in keywords:
+
+            if keyword in text:
+                score += 1
+
+        scores[category] = score
+
+    best_category = max(
+        scores,
+        key=scores.get
+    )
+
+    if scores[best_category] == 0:
+
+        return "📦 Lainnya"
+
+    return best_category
+
+# =========================================================
 # SHIPMENT DASHBOARD
 # =========================================================
 
 if menu == "📦 Shipment Dashboard":
 
-    st.title("📦 Shipment Dashboard")
+    st.title(
+        "📦 Shipment Dashboard"
+    )
 
     if df is not None:
 
-        # =================================================
+        # =============================================
+        # AUTO CATEGORY
+        # =============================================
+
+        df["AI_Category"] = df.astype(str).apply(
+            lambda row: detect_category(
+                " ".join(row)
+            ),
+            axis=1
+        )
+
+        # =============================================
         # METRICS
-        # =================================================
+        # =============================================
 
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
+
             st.metric(
                 "Total Rows",
                 len(df)
             )
 
         with col2:
+
             st.metric(
                 "Total Columns",
                 len(df.columns)
@@ -174,9 +337,14 @@ if menu == "📦 Shipment Dashboard":
         with col3:
 
             try:
-                unique_shipment = df.iloc[:, 0].nunique()
+
+                unique_shipment = (
+                    df.iloc[:, 0]
+                    .nunique()
+                )
 
             except:
+
                 unique_shipment = 0
 
             st.metric(
@@ -186,7 +354,9 @@ if menu == "📦 Shipment Dashboard":
 
         with col4:
 
-            duplicate_count = df.duplicated().sum()
+            duplicate_count = (
+                df.duplicated().sum()
+            )
 
             st.metric(
                 "Duplicates",
@@ -195,13 +365,16 @@ if menu == "📦 Shipment Dashboard":
 
         st.divider()
 
-        # =================================================
+        # =============================================
         # SMART SEARCH
-        # =================================================
+        # =============================================
 
         search = st.text_input(
             "🔍 Smart Search",
-            placeholder="Cari SKU, Resi, CD Shaka, HP Samsung..."
+            placeholder=(
+                "Cari SKU, CD Shaka, "
+                "HP Samsung, Rak Besi..."
+            )
         )
 
         filtered_df = smart_search_dataframe(
@@ -209,21 +382,54 @@ if menu == "📦 Shipment Dashboard":
             search
         )
 
-        # =================================================
-        # FILTER STATUS
-        # =================================================
+        # =============================================
+        # CATEGORY FILTER
+        # =============================================
+
+        st.subheader(
+            "🧠 AI Category Filter"
+        )
+
+        category_options = sorted(
+            filtered_df["AI_Category"]
+            .dropna()
+            .unique()
+        )
+
+        selected_category = st.multiselect(
+            "Pilih Category",
+            category_options
+        )
+
+        if selected_category:
+
+            filtered_df = filtered_df[
+                filtered_df["AI_Category"]
+                .isin(selected_category)
+            ]
+
+        st.divider()
+
+        # =============================================
+        # STATUS FILTER
+        # =============================================
 
         status_columns = [
+
             col for col in filtered_df.columns
+
             if (
                 "status" in col.lower()
                 or "desc" in col.lower()
             )
+
         ]
 
         if status_columns:
 
-            st.subheader("📦 Filter Status")
+            st.subheader(
+                "📦 Filter Status"
+            )
 
             selected_status_col = st.selectbox(
                 "Pilih Kolom Status",
@@ -231,10 +437,14 @@ if menu == "📦 Shipment Dashboard":
             )
 
             status_options = sorted(
-                filtered_df[selected_status_col]
+
+                filtered_df[
+                    selected_status_col
+                ]
                 .astype(str)
                 .dropna()
                 .unique()
+
             )
 
             selected_status = st.multiselect(
@@ -245,29 +455,38 @@ if menu == "📦 Shipment Dashboard":
             if selected_status:
 
                 filtered_df = filtered_df[
-                    filtered_df[selected_status_col]
+
+                    filtered_df[
+                        selected_status_col
+                    ]
                     .astype(str)
                     .isin(selected_status)
+
                 ]
 
         st.divider()
 
-        # =================================================
-        # FILTER STATION
-        # =================================================
+        # =============================================
+        # STATION FILTER
+        # =============================================
 
         station_columns = [
+
             col for col in filtered_df.columns
+
             if (
                 "station" in col.lower()
                 or "origin" in col.lower()
                 or "dest" in col.lower()
             )
+
         ]
 
         if station_columns:
 
-            st.subheader("📍 Filter Station")
+            st.subheader(
+                "📍 Filter Station"
+            )
 
             selected_station_col = st.selectbox(
                 "Pilih Kolom Station",
@@ -275,10 +494,14 @@ if menu == "📦 Shipment Dashboard":
             )
 
             station_options = sorted(
-                filtered_df[selected_station_col]
+
+                filtered_df[
+                    selected_station_col
+                ]
                 .astype(str)
                 .dropna()
                 .unique()
+
             )
 
             selected_station = st.multiselect(
@@ -289,16 +512,20 @@ if menu == "📦 Shipment Dashboard":
             if selected_station:
 
                 filtered_df = filtered_df[
-                    filtered_df[selected_station_col]
+
+                    filtered_df[
+                        selected_station_col
+                    ]
                     .astype(str)
                     .isin(selected_station)
+
                 ]
 
         st.divider()
 
-        # =================================================
+        # =============================================
         # SORT
-        # =================================================
+        # =============================================
 
         st.subheader("↕ Sort Data")
 
@@ -321,7 +548,9 @@ if menu == "📦 Shipment Dashboard":
                 ]
             )
 
-        ascending = sort_order == "Ascending"
+        ascending = (
+            sort_order == "Ascending"
+        )
 
         try:
 
@@ -335,11 +564,13 @@ if menu == "📦 Shipment Dashboard":
 
         st.divider()
 
-        # =================================================
+        # =============================================
         # RESULT
-        # =================================================
+        # =============================================
 
-        st.subheader("📋 Shipment Result")
+        st.subheader(
+            "📋 Shipment Result"
+        )
 
         st.write(
             f"Total hasil filter: {len(filtered_df)}"
@@ -351,9 +582,9 @@ if menu == "📦 Shipment Dashboard":
             height=650
         )
 
-        # =================================================
+        # =============================================
         # DOWNLOAD
-        # =================================================
+        # =============================================
 
         csv = filtered_df.to_csv(
             index=False
@@ -378,77 +609,84 @@ if menu == "📦 Shipment Dashboard":
 
 if menu == "📊 Analytics Dashboard":
 
-    st.title("📊 Analytics Dashboard")
+    st.title(
+        "📊 Analytics Dashboard"
+    )
 
     if df is not None:
+
+        # =============================================
+        # CATEGORY CHART
+        # =============================================
+
+        df["AI_Category"] = df.astype(str).apply(
+            lambda row: detect_category(
+                " ".join(row)
+            ),
+            axis=1
+        )
+
+        st.subheader(
+            "🧠 AI Category Distribution"
+        )
+
+        category_counts = (
+            df["AI_Category"]
+            .value_counts()
+        )
+
+        fig, ax = plt.subplots()
+
+        ax.bar(
+            category_counts.index,
+            category_counts.values
+        )
+
+        plt.xticks(rotation=20)
+
+        st.pyplot(fig)
+
+        st.divider()
 
         # =============================================
         # STATUS ANALYTICS
         # =============================================
 
         status_columns = [
+
             col for col in df.columns
+
             if (
                 "status" in col.lower()
                 or "desc" in col.lower()
             )
+
         ]
 
         if status_columns:
 
-            selected_status_col = status_columns[0]
+            selected_status_col = (
+                status_columns[0]
+            )
 
-            st.subheader("📦 Status Distribution")
+            st.subheader(
+                "📦 Status Distribution"
+            )
 
             status_counts = (
+
                 df[selected_status_col]
                 .astype(str)
                 .value_counts()
                 .head(10)
-            )
 
-            fig, ax = plt.subplots()
-
-            ax.bar(
-                status_counts.index,
-                status_counts.values
-            )
-
-            plt.xticks(rotation=45)
-
-            st.pyplot(fig)
-
-        # =============================================
-        # STATION ANALYTICS
-        # =============================================
-
-        station_columns = [
-            col for col in df.columns
-            if (
-                "station" in col.lower()
-                or "origin" in col.lower()
-                or "dest" in col.lower()
-            )
-        ]
-
-        if station_columns:
-
-            selected_station_col = station_columns[0]
-
-            st.subheader("📍 Station Distribution")
-
-            station_counts = (
-                df[selected_station_col]
-                .astype(str)
-                .value_counts()
-                .head(10)
             )
 
             fig2, ax2 = plt.subplots()
 
             ax2.bar(
-                station_counts.index,
-                station_counts.values
+                status_counts.index,
+                status_counts.values
             )
 
             plt.xticks(rotation=45)
@@ -458,7 +696,7 @@ if menu == "📊 Analytics Dashboard":
     else:
 
         st.info(
-            "Upload file XLSX / CSV dulu di sidebar."
+            "Upload file dulu di sidebar."
         )
 
 # =========================================================
@@ -467,7 +705,9 @@ if menu == "📊 Analytics Dashboard":
 
 if menu == "🧠 AI Visual Search":
 
-    st.title("🧠 AI Visual Search")
+    st.title(
+        "🧠 AI Visual Search"
+    )
 
     uploaded_image = st.file_uploader(
         "Upload Foto Barang",
@@ -476,7 +716,9 @@ if menu == "🧠 AI Visual Search":
 
     if uploaded_image:
 
-        image = Image.open(uploaded_image)
+        image = Image.open(
+            uploaded_image
+        )
 
         col1, col2 = st.columns(2)
 
@@ -506,21 +748,23 @@ if menu == "🧠 AI Visual Search":
                     text = result[1]
 
                     if text.strip():
+
                         texts.append(text)
 
                 final_text = " ".join(texts)
-
-                lower_text = final_text.lower()
 
             st.success(
                 "AI Analysis Complete 🔥"
             )
 
-            st.subheader("📝 OCR Result")
+            st.subheader(
+                "📝 OCR Result"
+            )
 
             if texts:
 
                 for txt in texts:
+
                     st.code(txt)
 
             else:
@@ -532,64 +776,20 @@ if menu == "🧠 AI Visual Search":
             st.divider()
 
             # =========================================
-            # PRODUCT DETECTION
+            # CATEGORY DETECTION
             # =========================================
 
-            st.subheader("📦 AI Product Detection")
-
-            detected_products = []
-
-            if (
-                "rack" in lower_text
-                or "shelf" in lower_text
-            ):
-
-                detected_products.append(
-                    "Metal Rack"
-                )
-
-            if "chair" in lower_text:
-
-                detected_products.append(
-                    "Chair Furniture"
-                )
-
-            if "table" in lower_text:
-
-                detected_products.append(
-                    "Table Furniture"
-                )
-
-            if "mouse" in lower_text:
-
-                detected_products.append(
-                    "Computer Accessories"
-                )
-
-            model_codes = re.findall(
-                r"[A-Z]{2,5}-?[0-9]{1,5}",
+            detected_category = detect_category(
                 final_text
             )
 
-            for model in model_codes:
-
-                detected_products.append(
-                    f"Model: {model}"
-                )
-
-            if not detected_products:
-
-                detected_products.append(
-                    "Unknown Product"
-                )
-
-            detected_products = list(
-                set(detected_products)
+            st.subheader(
+                "🧠 AI Category"
             )
 
-            for product in detected_products:
-
-                st.success(product)
+            st.success(
+                detected_category
+            )
 
             st.divider()
 
@@ -597,18 +797,16 @@ if menu == "🧠 AI Visual Search":
             # SMART SEARCH
             # =========================================
 
-            st.subheader("🌐 Smart Search")
-
-            search_query = (
-                " ".join(detected_products)
+            st.subheader(
+                "🌐 Smart Search"
             )
 
             google_search = (
-                f"https://www.google.com/search?q={search_query}"
+                f"https://www.google.com/search?q={final_text}"
             )
 
             google_images = (
-                f"https://www.google.com/search?tbm=isch&q={search_query}"
+                f"https://www.google.com/search?tbm=isch&q={final_text}"
             )
 
             st.markdown(
@@ -631,7 +829,9 @@ if menu == "🧠 AI Visual Search":
 
 if menu == "📷 Barcode / Label Scanner":
 
-    st.title("📷 Barcode / Label Scanner")
+    st.title(
+        "📷 Barcode / Label Scanner"
+    )
 
     st.caption(
         "Gunakan kamera HP untuk scan label / barcode"
@@ -643,7 +843,9 @@ if menu == "📷 Barcode / Label Scanner":
 
     if camera_image:
 
-        image = Image.open(camera_image)
+        image = Image.open(
+            camera_image
+        )
 
         st.image(
             image,
@@ -667,6 +869,7 @@ if menu == "📷 Barcode / Label Scanner":
                 text = result[1]
 
                 if text.strip():
+
                     texts.append(text)
 
         if texts:
@@ -676,6 +879,7 @@ if menu == "📷 Barcode / Label Scanner":
             )
 
             for txt in texts:
+
                 st.code(txt)
 
             combined = " ".join(texts)
@@ -683,14 +887,36 @@ if menu == "📷 Barcode / Label Scanner":
             st.divider()
 
             # =========================================
+            # CATEGORY
+            # =========================================
+
+            detected_category = detect_category(
+                combined
+            )
+
+            st.subheader(
+                "🧠 AI Category"
+            )
+
+            st.success(
+                detected_category
+            )
+
+            st.divider()
+
+            # =========================================
             # AWB DETECTION
             # =========================================
 
-            st.subheader("📦 AWB Detection")
+            st.subheader(
+                "📦 AWB Detection"
+            )
 
             awb_patterns = [
+
                 r"SPXID[0-9]+",
                 r"NA[0-9]+"
+
             ]
 
             found_awb = []
@@ -712,15 +938,13 @@ if menu == "📷 Barcode / Label Scanner":
                         f"Detected AWB: {awb}"
                     )
 
-                    # =================================
-                    # AUTO SEARCH SHIPMENT
-                    # =================================
-
                     if df is not None:
 
-                        shipment_result = smart_search_dataframe(
-                            df,
-                            awb
+                        shipment_result = (
+                            smart_search_dataframe(
+                                df,
+                                awb
+                            )
                         )
 
                         if not shipment_result.empty:
@@ -740,22 +964,6 @@ if menu == "📷 Barcode / Label Scanner":
                     "AWB tidak ditemukan"
                 )
 
-            st.divider()
-
-            # =========================================
-            # GOOGLE SEARCH
-            # =========================================
-
-            st.subheader("🌐 Smart Search")
-
-            google_search = (
-                f"https://www.google.com/search?q={combined}"
-            )
-
-            st.markdown(
-                f"[🔎 Search Barcode]({google_search})"
-            )
-
         else:
 
             st.warning(
@@ -769,5 +977,5 @@ if menu == "📷 Barcode / Label Scanner":
 st.divider()
 
 st.caption(
-    "🔥 Warehouse AI Super App V5"
+    "🔥 Warehouse AI Super App V6"
 )

@@ -1,84 +1,82 @@
 import streamlit as st
 import pandas as pd
+from PIL import Image
+import easyocr
+import numpy as np
+import re
 
 st.set_page_config(
-    page_title="Shipment Dashboard",
+    page_title="Warehouse Super App",
     layout="wide"
 )
 
-st.title("📦 Shipment Dashboard")
-st.caption("Upload file XLSX atau CSV lalu search & filter shipment")
-
-uploaded_file = st.file_uploader(
-    "Upload File",
-    type=["xlsx", "csv"]
+# SIDEBAR
+menu = st.sidebar.selectbox(
+    "Pilih Menu",
+    [
+        "📦 Shipment Dashboard",
+        "🧠 AI Visual Search"
+    ]
 )
 
-if uploaded_file:
-    try:
-        # Read file
-        if uploaded_file.name.endswith('.csv'):
+# =========================
+# SHIPMENT DASHBOARD
+# =========================
+
+if menu == "📦 Shipment Dashboard":
+
+    st.title("📦 Shipment Dashboard")
+
+    uploaded_file = st.file_uploader(
+        "Upload XLSX / CSV",
+        type=["xlsx", "csv"]
+    )
+
+    if uploaded_file:
+
+        # READ FILE
+        if uploaded_file.name.endswith(".csv"):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
 
-        st.success(f"File berhasil diupload: {uploaded_file.name}")
+        st.success("File berhasil diupload!")
 
-        # Clean column names
-        df.columns = [str(col).strip() for col in df.columns]
-
-        # Dashboard metrics
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            st.metric("Total Data", len(df))
-
-        with col2:
-            st.metric("Total Kolom", len(df.columns))
-
-        with col3:
-            st.metric("Unique Shipment", df.iloc[:,0].nunique())
-
-        st.divider()
-
-        # Search box
+        # SEARCH
         search = st.text_input(
-            "🔍 Search",
-            placeholder="Cari HP, Mouse, Kalawat DC, dll..."
+            "🔍 Search Semua Data",
+            placeholder="Cari HP, Mouse, SKU, Resi..."
         )
 
         filtered_df = df.copy()
 
-        # Global search
         if search:
             mask = filtered_df.astype(str).apply(
-                lambda row: row.str.contains(search, case=False).any(),
+                lambda row: row.str.contains(
+                    search,
+                    case=False
+                ).any(),
                 axis=1
             )
 
             filtered_df = filtered_df[mask]
 
-        # Station filter
+        # FILTER STATION
         station_columns = [
             col for col in filtered_df.columns
-            if 'station' in col.lower()
-            or 'origin' in col.lower()
-            or 'destination' in col.lower()
+            if "station" in col.lower()
         ]
 
         if station_columns:
+
             selected_station_col = st.selectbox(
-                "📍 Pilih Kolom Station",
+                "Pilih Kolom Station",
                 station_columns
             )
 
-            station_options = sorted(
-                filtered_df[selected_station_col]
-                .astype(str)
-                .dropna()
-                .unique()
-                .tolist()
-            )
+            station_options = filtered_df[
+                selected_station_col
+            ].astype(str).unique()
 
             selected_station = st.multiselect(
                 "Filter Station",
@@ -92,56 +90,185 @@ if uploaded_file:
                     .isin(selected_station)
                 ]
 
-        st.divider()
+        # SORT
+        sort_column = st.selectbox(
+            "Sort By",
+            filtered_df.columns
+        )
 
-        # Sort section
-        col_sort1, col_sort2 = st.columns(2)
-
-        with col_sort1:
-            sort_column = st.selectbox(
-                "Sort By",
-                filtered_df.columns.tolist()
-            )
-
-        with col_sort2:
-            sort_order = st.selectbox(
-                "Urutan",
-                ["Descending", "Ascending"]
-            )
-
-        ascending = sort_order == "Ascending"
+        ascending = st.checkbox("Ascending")
 
         filtered_df = filtered_df.sort_values(
             by=sort_column,
             ascending=ascending
         )
 
-        # Final metrics
-        st.subheader("📋 Hasil Filter")
-        st.write(f"Total hasil: {len(filtered_df)}")
+        # METRICS
+        col1, col2 = st.columns(2)
 
-        # Display dataframe
+        with col1:
+            st.metric(
+                "Total Data",
+                len(filtered_df)
+            )
+
+        with col2:
+            st.metric(
+                "Total Kolom",
+                len(filtered_df.columns)
+            )
+
+        st.divider()
+
+        # TABLE
         st.dataframe(
             filtered_df,
             use_container_width=True,
             height=600
         )
 
-        # Download button
-        csv = filtered_df.to_csv(index=False).encode('utf-8')
+        # DOWNLOAD
+        csv = filtered_df.to_csv(index=False).encode("utf-8")
 
         st.download_button(
-            label="⬇ Download Hasil Filter",
-            data=csv,
-            file_name="filtered_shipment.csv",
-            mime="text/csv"
+            "⬇ Download Result",
+            csv,
+            "filtered_result.csv",
+            "text/csv"
         )
 
-    except Exception as e:
-        st.error(f"Terjadi error: {e}")
+# =========================
+# AI VISUAL SEARCH
+# =========================
 
-else:
-    st.info("Silakan upload file XLSX atau CSV untuk memulai.")
+elif menu == "🧠 AI Visual Search":
 
-st.divider()
-st.caption("Made with Streamlit 🚀")
+    st.title("🧠 AI Visual Search")
+
+    uploaded_image = st.file_uploader(
+        "Upload Foto Dus / Barang",
+        type=["jpg", "jpeg", "png"]
+    )
+
+    if uploaded_image:
+
+        image = Image.open(uploaded_image)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.image(
+                image,
+                caption="Uploaded Image",
+                use_container_width=True
+            )
+
+        with col2:
+
+            with st.spinner(
+                "AI sedang membaca gambar..."
+            ):
+
+                reader = easyocr.Reader(['en'])
+
+                image_np = np.array(image)
+
+                results = reader.readtext(image_np)
+
+                detected_texts = []
+
+                for result in results:
+                    detected_texts.append(result[1])
+
+                final_text = " ".join(
+                    detected_texts
+                )
+
+                st.success(
+                    "AI Detection Selesai!"
+                )
+
+                st.subheader(
+                    "📝 Detected Text"
+                )
+
+                if detected_texts:
+                    for txt in detected_texts:
+                        st.write(f"• {txt}")
+                else:
+                    st.warning(
+                        "Tidak ada text terdeteksi"
+                    )
+
+                st.divider()
+
+                st.subheader(
+                    "🔍 AI Keywords"
+                )
+
+                keywords = re.findall(
+                    r'[A-Za-z0-9\\-]+',
+                    final_text
+                )
+
+                unique_keywords = list(
+                    set(keywords)
+                )
+
+                for keyword in unique_keywords:
+                    if len(keyword) > 2:
+                        st.code(keyword)
+
+                st.divider()
+
+                st.subheader(
+                    "📦 Possible Product"
+                )
+
+                lower_text = final_text.lower()
+
+                possible_products = []
+
+                if "lsj" in lower_text:
+                    possible_products.append(
+                        "Metal Rack / Shelf"
+                    )
+
+                if "black" in lower_text:
+                    possible_products.append(
+                        "Black Furniture"
+                    )
+
+                if "pcs" in lower_text:
+                    possible_products.append(
+                        "Bulk Package"
+                    )
+
+                if not possible_products:
+                    possible_products.append(
+                        "Unknown Product"
+                    )
+
+                for item in possible_products:
+                    st.success(item)
+
+                st.divider()
+
+                st.subheader(
+                    "🌐 Suggested Search"
+                )
+
+                for keyword in unique_keywords[:5]:
+
+                    search_url = (
+                        f\"https://www.google.com/search?q={keyword}\"
+                    )
+
+                    st.markdown(
+                        f\"[🔎 Search {keyword}]({search_url})\"
+                    )
+
+    else:
+        st.info(
+            "Upload gambar untuk memulai AI detection."
+        )

@@ -5,13 +5,14 @@ import easyocr
 import numpy as np
 import re
 import matplotlib.pyplot as plt
+from rapidfuzz import fuzz
 
 # =========================================================
 # PAGE CONFIG
 # =========================================================
 
 st.set_page_config(
-    page_title="🔥 Warehouse AI Super App V4",
+    page_title="🔥 Warehouse AI Super App V5",
     page_icon="🔥",
     layout="wide"
 )
@@ -30,7 +31,7 @@ reader = load_reader()
 # SIDEBAR
 # =========================================================
 
-st.sidebar.title("🔥 Warehouse AI Super App")
+st.sidebar.title("🔥 Warehouse AI Super App V5")
 
 menu = st.sidebar.radio(
     "Pilih Menu",
@@ -38,7 +39,7 @@ menu = st.sidebar.radio(
         "📦 Shipment Dashboard",
         "📊 Analytics Dashboard",
         "🧠 AI Visual Search",
-        "📷 Barcode Scanner"
+        "📷 Barcode / Label Scanner"
     ]
 )
 
@@ -77,6 +78,72 @@ if uploaded_file:
         st.error(f"Error membaca file: {e}")
 
 # =========================================================
+# SMART SEARCH FUNCTION
+# =========================================================
+
+def smart_search_dataframe(dataframe, search):
+
+    if not search:
+        return dataframe
+
+    shortcuts = {
+        "cd": "celana dalam",
+        "hp": "handphone",
+        "rak": "rack",
+        "meja": "table",
+        "kursi": "chair",
+        "lemari": "cabinet",
+        "tv": "television"
+    }
+
+    search_text = search.lower()
+
+    for short, full in shortcuts.items():
+
+        if short in search_text:
+
+            search_text = search_text.replace(
+                short,
+                full
+            )
+
+    def smart_search(row):
+
+        row_text = " ".join(
+            row.astype(str)
+        ).lower()
+
+        # =====================================
+        # EXACT SEARCH
+        # =====================================
+
+        if search_text in row_text:
+            return True
+
+        # =====================================
+        # FUZZY SEARCH
+        # =====================================
+
+        similarity = fuzz.partial_ratio(
+            search_text,
+            row_text
+        )
+
+        if similarity >= 70:
+            return True
+
+        return False
+
+    filtered = dataframe[
+        dataframe.apply(
+            smart_search,
+            axis=1
+        )
+    ]
+
+    return filtered
+
+# =========================================================
 # SHIPMENT DASHBOARD
 # =========================================================
 
@@ -107,16 +174,15 @@ if menu == "📦 Shipment Dashboard":
         with col3:
 
             try:
-                st.metric(
-                    "Unique Shipment",
-                    df.iloc[:, 0].nunique()
-                )
+                unique_shipment = df.iloc[:, 0].nunique()
 
             except:
-                st.metric(
-                    "Unique Shipment",
-                    0
-                )
+                unique_shipment = 0
+
+            st.metric(
+                "Unique Shipment",
+                unique_shipment
+            )
 
         with col4:
 
@@ -130,28 +196,18 @@ if menu == "📦 Shipment Dashboard":
         st.divider()
 
         # =================================================
-        # SEARCH
+        # SMART SEARCH
         # =================================================
 
         search = st.text_input(
             "🔍 Smart Search",
-            placeholder="Cari SKU, Resi, Status..."
+            placeholder="Cari SKU, Resi, CD Shaka, HP Samsung..."
         )
 
-        filtered_df = df.copy()
-
-        if search:
-
-            mask = filtered_df.astype(str).apply(
-                lambda row: row.str.contains(
-                    search,
-                    case=False,
-                    na=False
-                ).any(),
-                axis=1
-            )
-
-            filtered_df = filtered_df[mask]
+        filtered_df = smart_search_dataframe(
+            df,
+            search
+        )
 
         # =================================================
         # FILTER STATUS
@@ -167,8 +223,10 @@ if menu == "📦 Shipment Dashboard":
 
         if status_columns:
 
+            st.subheader("📦 Filter Status")
+
             selected_status_col = st.selectbox(
-                "📦 Status Column",
+                "Pilih Kolom Status",
                 status_columns
             )
 
@@ -180,7 +238,7 @@ if menu == "📦 Shipment Dashboard":
             )
 
             selected_status = st.multiselect(
-                "Filter Status",
+                "Pilih Status",
                 status_options
             )
 
@@ -191,6 +249,8 @@ if menu == "📦 Shipment Dashboard":
                     .astype(str)
                     .isin(selected_status)
                 ]
+
+        st.divider()
 
         # =================================================
         # FILTER STATION
@@ -207,8 +267,10 @@ if menu == "📦 Shipment Dashboard":
 
         if station_columns:
 
+            st.subheader("📍 Filter Station")
+
             selected_station_col = st.selectbox(
-                "📍 Station Column",
+                "Pilih Kolom Station",
                 station_columns
             )
 
@@ -220,7 +282,7 @@ if menu == "📦 Shipment Dashboard":
             )
 
             selected_station = st.multiselect(
-                "Filter Station",
+                "Pilih Station",
                 station_options
             )
 
@@ -238,12 +300,14 @@ if menu == "📦 Shipment Dashboard":
         # SORT
         # =================================================
 
+        st.subheader("↕ Sort Data")
+
         col_sort1, col_sort2 = st.columns(2)
 
         with col_sort1:
 
             sort_column = st.selectbox(
-                "↕ Sort By",
+                "Sort By",
                 filtered_df.columns
             )
 
@@ -272,10 +336,14 @@ if menu == "📦 Shipment Dashboard":
         st.divider()
 
         # =================================================
-        # DATAFRAME
+        # RESULT
         # =================================================
 
         st.subheader("📋 Shipment Result")
+
+        st.write(
+            f"Total hasil filter: {len(filtered_df)}"
+        )
 
         st.dataframe(
             filtered_df,
@@ -300,7 +368,9 @@ if menu == "📦 Shipment Dashboard":
 
     else:
 
-        st.info("Upload file dulu di sidebar.")
+        st.info(
+            "Upload file XLSX / CSV dulu di sidebar."
+        )
 
 # =========================================================
 # ANALYTICS DASHBOARD
@@ -387,7 +457,9 @@ if menu == "📊 Analytics Dashboard":
 
     else:
 
-        st.info("Upload file dulu di sidebar.")
+        st.info(
+            "Upload file XLSX / CSV dulu di sidebar."
+        )
 
 # =========================================================
 # AI VISUAL SEARCH
@@ -440,14 +512,28 @@ if menu == "🧠 AI Visual Search":
 
                 lower_text = final_text.lower()
 
-            st.success("AI Analysis Complete 🔥")
+            st.success(
+                "AI Analysis Complete 🔥"
+            )
 
             st.subheader("📝 OCR Result")
 
-            for txt in texts:
-                st.code(txt)
+            if texts:
+
+                for txt in texts:
+                    st.code(txt)
+
+            else:
+
+                st.warning(
+                    "Tidak ada text terdeteksi"
+                )
 
             st.divider()
+
+            # =========================================
+            # PRODUCT DETECTION
+            # =========================================
 
             st.subheader("📦 AI Product Detection")
 
@@ -462,25 +548,19 @@ if menu == "🧠 AI Visual Search":
                     "Metal Rack"
                 )
 
-            if (
-                "chair" in lower_text
-            ):
+            if "chair" in lower_text:
 
                 detected_products.append(
                     "Chair Furniture"
                 )
 
-            if (
-                "table" in lower_text
-            ):
+            if "table" in lower_text:
 
                 detected_products.append(
                     "Table Furniture"
                 )
 
-            if (
-                "mouse" in lower_text
-            ):
+            if "mouse" in lower_text:
 
                 detected_products.append(
                     "Computer Accessories"
@@ -513,6 +593,10 @@ if menu == "🧠 AI Visual Search":
 
             st.divider()
 
+            # =========================================
+            # SMART SEARCH
+            # =========================================
+
             st.subheader("🌐 Smart Search")
 
             search_query = (
@@ -535,13 +619,23 @@ if menu == "🧠 AI Visual Search":
                 f"[🖼 Google Images]({google_images})"
             )
 
+    else:
+
+        st.info(
+            "Upload gambar untuk memulai."
+        )
+
 # =========================================================
-# BARCODE SCANNER
+# BARCODE / LABEL SCANNER
 # =========================================================
 
-if menu == "📷 Barcode Scanner":
+if menu == "📷 Barcode / Label Scanner":
 
     st.title("📷 Barcode / Label Scanner")
+
+    st.caption(
+        "Gunakan kamera HP untuk scan label / barcode"
+    )
 
     camera_image = st.camera_input(
         "Ambil Foto Barcode / Label"
@@ -577,7 +671,9 @@ if menu == "📷 Barcode Scanner":
 
         if texts:
 
-            st.success("Barcode berhasil dibaca 🔥")
+            st.success(
+                "Barcode berhasil dibaca 🔥"
+            )
 
             for txt in texts:
                 st.code(txt)
@@ -586,7 +682,71 @@ if menu == "📷 Barcode Scanner":
 
             st.divider()
 
-            st.subheader("🌐 Search")
+            # =========================================
+            # AWB DETECTION
+            # =========================================
+
+            st.subheader("📦 AWB Detection")
+
+            awb_patterns = [
+                r"SPXID[0-9]+",
+                r"NA[0-9]+"
+            ]
+
+            found_awb = []
+
+            for pattern in awb_patterns:
+
+                matches = re.findall(
+                    pattern,
+                    combined
+                )
+
+                found_awb.extend(matches)
+
+            if found_awb:
+
+                for awb in found_awb:
+
+                    st.success(
+                        f"Detected AWB: {awb}"
+                    )
+
+                    # =================================
+                    # AUTO SEARCH SHIPMENT
+                    # =================================
+
+                    if df is not None:
+
+                        shipment_result = smart_search_dataframe(
+                            df,
+                            awb
+                        )
+
+                        if not shipment_result.empty:
+
+                            st.subheader(
+                                "📋 Shipment Match"
+                            )
+
+                            st.dataframe(
+                                shipment_result,
+                                use_container_width=True
+                            )
+
+            else:
+
+                st.warning(
+                    "AWB tidak ditemukan"
+                )
+
+            st.divider()
+
+            # =========================================
+            # GOOGLE SEARCH
+            # =========================================
+
+            st.subheader("🌐 Smart Search")
 
             google_search = (
                 f"https://www.google.com/search?q={combined}"
@@ -609,5 +769,5 @@ if menu == "📷 Barcode Scanner":
 st.divider()
 
 st.caption(
-    "🔥 Warehouse AI Super App V4"
+    "🔥 Warehouse AI Super App V5"
 )
